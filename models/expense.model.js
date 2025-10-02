@@ -1,7 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 import { User } from "./user.model.js";
 import { Category } from "./category.model.js";
-
+import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
 const expenseSchema = new Schema (
     {
         paidBy : {
@@ -117,5 +117,7 @@ expenseSchema.statics.getMonthlyCategorySpending = async function(userId, month,
         }
     ]);
 };
+
+expenseSchema.plugin(mongooseAggregatePaginate)
 
 export const Expense = mongoose.model("Expense", expenseSchema);
