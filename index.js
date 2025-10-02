@@ -32,4 +32,6 @@ app.use(express.static("public"))
 app.use(cookieParser())
 
 import checkRoute from './routes/check.routes.js'
+import userRoutes from './routes/user.routes.js'
 app.use("/api/v1/server-check", checkRoute)
+app.use("/api/v1/user", userRoutes)

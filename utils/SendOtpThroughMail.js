@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
-import { ApiResponse } from "./ApiResponse";
-import { ApiError } from "./ApiError";
+import { ApiResponse } from "./ApiResponse.js";
+import { ApiError } from "./ApiError.js";
 
 
 async function SendOtpThroughMail(otp, email){

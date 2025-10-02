@@ -1,5 +1,5 @@
 import mongoose,{Schema} from "mongoose";
-import { User } from "./user.model";
+import { User } from "./user.model.js";
 
 const otpSchema = new Schema (
     {   email : {
@@ -7,7 +7,7 @@ const otpSchema = new Schema (
             required : true
         },
         otp : {
-            type : Number,
+            type : String,
             required : true
         },
         expiresIn : {

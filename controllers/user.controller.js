@@ -4,7 +4,8 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { SendOtpThroughMail } from "../utils/SendOtpThroughMail.js";
 import { Otp } from "../models/otp.model.js";
-import { generateNumericOTP } from "../utils/OtpGeneration";
+import { generateNumericOTP } from "../utils/OtpGeneration.js";
+import jwt from  "jsonwebtoken"
 
 const generateAccessToken = async(userId) => {
     try {
@@ -44,7 +45,7 @@ const registerUser = AsyncHandler(async(req, res) => {
                     }
                 )
                 
-                 const createdUserCheck = await User.findById(user._id).select(
+                 const createdUserCheck = await User.findById(createdUser._id).select(
                  "-password" )
 
                 if (!createdUserCheck) {
@@ -70,7 +71,7 @@ const loginUser = AsyncHandler(async(req, res) => {
     if(!isPasswordValid){
           throw new ApiError(402, "password is incorrect retry again")
     }
-    const {accessToken} = await generateAccessAndRefreshToken(user._id)
+    const {accessToken} = await generateAccessToken(user._id)
     const loggedInUser = await User.findById(user._id).select("-password")
 
 
@@ -175,11 +176,11 @@ const sendPasswordresetOtp = AsyncHandler(async(req, res) => {
     const generatedOtp = generateNumericOTP(6)
     const expiresIn = Date.now() + 9 * 60 * 1000 //9 minute
 
-    const existingUsersOtp = await Otp.deleteMany({email : email,type : "passswordReset"}) 
+    const existingUsersOtp = await Otp.deleteMany({email : email,type : "passwordReset"}) 
     const newUserOtpForReset = await Otp.create(
         {
             email : email,
-            type : "passwordRest",
+            type : "passwordReset",
             otp : generatedOtp,
             expiresIn : expiresIn
         }
@@ -189,7 +190,7 @@ const sendPasswordresetOtp = AsyncHandler(async(req, res) => {
         throw new ApiError(501, "otp not saved error in db")
     }
     
-    const sendOtpViaMail = await SendOtpThroughMail(email, generatedOtp)
+    const sendOtpViaMail = await SendOtpThroughMail(generatedOtp, email)
     if(!sendOtpViaMail){
         const existingOtp = await Otp.deleteMany({email : email, type : "passwordReset"})
         throw new ApiError(402, "all existing otp related password reset removed successfully")
@@ -208,14 +209,17 @@ const verifyPasswordResetOtp = AsyncHandler(async(req, res) => {
        if(!email || !otp){
         throw new ApiError(401,"please provide otp for verification")
        }
+       console.log(email, otp)
 
         try {
                 const existingOtpRecord = await Otp.findOne({email : email, type : "passwordReset"})
-                if(Date.now() > otpRecord.expiresIn) {
-                    await Otp.deleteOne({ email, type: "password_reset" });
+                console.log(existingOtpRecord.expiresIn)
+                if(Date.now() > existingOtpRecord.expiresIn) {
+                    await Otp.deleteOne({ email, type: "passwordReset" });
                     throw new ApiError(400, "OTP has expired. Please request a new one.");
                 }
-                if(parseInt(otp) !== existingOtpRecord.otp){
+                console.log(parseInt(otp), existingOtpRecord.otp)
+                if(parseInt(otp) !== parseInt(existingOtpRecord.otp)){
                     throw new ApiError(401, "otp is invalid try again")
                 }
         
@@ -259,6 +263,8 @@ const resetPassword = AsyncHandler(async(req, res) => {
               
         try {
               const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+              console.log(decoded.email);
+
               if(decoded.purpose !== "passwordReset"){
                   throw new ApiError(400, "Invalid reset token");
               }
@@ -272,7 +278,7 @@ const resetPassword = AsyncHandler(async(req, res) => {
               await user.save()
     
               const deleteExistingOtp = await Otp.deleteMany(
-                {email : email, purpose : "passwordReset"}
+                {email : decoded.email, purpose : "passwordReset"}
               )
             return res.status(200).json(
                 new ApiResponse(200, 
@@ -285,6 +291,10 @@ const resetPassword = AsyncHandler(async(req, res) => {
         }
 })
 
+
+//testing left //
+
+//testing done//
 export{
     registerUser,
     loginUser,

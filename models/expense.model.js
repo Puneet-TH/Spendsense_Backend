@@ -18,7 +18,6 @@ const expenseSchema = new Schema (
             type: String,
             required: true,
             trim: true,
-            maxlength: [200, 'Description too long']
         },
         category: {
             type: mongoose.Types.ObjectId,
@@ -30,10 +29,7 @@ const expenseSchema = new Schema (
             enum: ['cash', 'card', 'upi', 'netbanking', 'wallet'],
             default: 'cash'
         },
-        location: {
-            type: String,
-            trim: true
-        },
+
         isRecurring: {
             type: Boolean,
             default: false
