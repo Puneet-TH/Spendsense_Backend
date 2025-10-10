@@ -33,5 +33,9 @@ app.use(cookieParser())
 
 import checkRoute from './routes/check.routes.js'
 import userRoutes from './routes/user.routes.js'
+import streakRoutes from './routes/streak.routes.js'
+import expenseRoutes from './routes/expense.routes.js'
 app.use("/api/v1/server-check", checkRoute)
 app.use("/api/v1/user", userRoutes)
+app.use("/api/v1/user-streak", streakRoutes)
+app.use("/api/v1/user-expense", expenseRoutes)

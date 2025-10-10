@@ -22,7 +22,7 @@ const expenseSchema = new Schema (
         category: {
             type: mongoose.Types.ObjectId,
             ref: "Category",
-            required: true
+            required: false
         },
         paymentMethod: {
             type: String,
@@ -44,10 +44,6 @@ const expenseSchema = new Schema (
             lowercase: true,
             trim: true
         }],
-        notes: {
-            type: String,
-            maxlength: [500, 'Notes too long']
-        },
         expenseDate: {
             type: Date,
             default: Date.now,

@@ -108,7 +108,6 @@ const defaultCategories = [
             isDefault: true
         }
     ];
-
 // Auto-categorize based on description by looping through it for finding keywords
 categorySchema.statics.suggestCategory = async function(description) {
     if (!description) return null;

@@ -1,4 +1,4 @@
-import { User } from "../models/user.model";
+import { User } from "../models/user.model.js";
 import { AsyncHandler } from "../utils/AsyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
@@ -8,20 +8,32 @@ import mongoose, { Mongoose,
     isValidObjectId } from "mongoose";
 
 const addExpense = AsyncHandler(async(req, res) => {
-    const {amount, description, category, paymentMethod} = req.body 
+    const {amount, description, category, paymentMethod, tags} = req.body 
     if(!amount || !description || !category || !paymentMethod){
         throw new ApiError(401, "all fields are mandatory to fill")
     }
+    if (!Array.isArray(tags) || !tags.every(tag => typeof tag === "string")) {
+        throw new ApiError(400, "Tags must be an array of strings");
+    }
+
     try {
+        let categoryNew = await Category.findOne({ name: category });
+
+        // If the category doesn't exist, create it dynamically as it will be stored in the collection of category db.
+        if (!categoryNew) {
+            categoryNew = new Category({ name: category, isDefault: false, keywords: tags });
+            await categoryNew.save();
+        }
         
         const addedExpense = await Expense.create(
             {
                 paidBy : req.user?._id,
-                amount : amount,
-                description : description,
-                category : category,
+                amount : amount || null,
+                description : description || null,
+                category : categoryNew?._id || null,
                 paymentMethod : paymentMethod,
                 expenseDate : Date.now(),
+                tags : tags,
             }
         )
         
@@ -37,7 +49,7 @@ const addExpense = AsyncHandler(async(req, res) => {
     } 
 })
 
-const RemoveExpense = AsyncHandler(async(req, res) => {
+const removeExpense = AsyncHandler(async(req, res) => {
       const {expenseId} = req.params 
       if(!expenseId){
         throw new ApiError(401, "no expenseId found in params")
@@ -60,10 +72,14 @@ const RemoveExpense = AsyncHandler(async(req, res) => {
 
 //updateExpense , //sumofallexpense , mostFrequentExpense, categorywiseSpending 
 const updateExpense = AsyncHandler(async(req, res) => {
-       const {amount, description, category, paymentMethod} = req.body 
+       const {amount, description, category, paymentMethod, tags} = req.body 
         if(!amount || !description || !category || !paymentMethod){
             throw new ApiError(401, "all fields are mandatory to fill")
         }
+        if (!Array.isArray(tags) || !tags.every(tag => typeof tag === "string")) {
+        throw new ApiError(400, "Tags must be an array of strings");
+    }
+
        const {expenseId} = req.params
         if(!expenseId){
             throw new ApiError(401, "no expense Id in params")
@@ -74,15 +90,23 @@ const updateExpense = AsyncHandler(async(req, res) => {
         if(!findExpense){
             return res.status(200).json(new ApiResponse(200, "no expense found"));
          }
-        
+
+        let categoryNew = await Category.findOne({ name: category });
+
+        // If the category doesn't exist, create it dynamically as it will be stored in the collection of category db.
+        if (!categoryNew) {
+            categoryNew = new Category({ name: category, isDefault: false, keywords: tags });
+            await categoryNew.save();
+        }
         const updatedExpense = await Expense.findByIdAndUpdate({expenseId}, 
             {
                 $set:{
                 paidBy,
                 amount : amount,
                 description : description,
-                category : category,
+                category : categoryNew?._id || null,
                 paymentMethod : paymentMethod,
+                tags : tags,
                 }
             },{
                 new : true
@@ -110,7 +134,7 @@ const getallExpense = AsyncHandler(async(req, res) => {
         throw new ApiError(401, "userId is not present")
     }
     
-    if(userId || !isValidObjectId(userId)){   //for type checking
+    if(!userId || !isValidObjectId(userId)){   //for type checking
         throw new ApiError(401, "invalid userId format")
     }
 
@@ -127,7 +151,7 @@ const getallExpense = AsyncHandler(async(req, res) => {
     try {
         const allExpense = await Expense.aggregatePaginate([
             {
-                $match : new mongoose.Types.ObjectId(userId)
+                $match : {paidBy : new mongoose.Types.ObjectId(userId)}
             } , 
             {
                 $lookup : {
@@ -225,4 +249,13 @@ const getTotalExpenseOfUser = AsyncHandler(async(req, res) => {
     }
 })
 
+
+// Expense Insights and Analytics , most occuring expense //recurring expense update
+
+
+export{
+    addExpense,
+    removeExpense,
+    updateExpense
+}
 
