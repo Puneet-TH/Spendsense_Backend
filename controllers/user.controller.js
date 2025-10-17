@@ -176,11 +176,10 @@ const sendPasswordresetOtp = AsyncHandler(async(req, res) => {
     const generatedOtp = generateNumericOTP(6)
     const expiresIn = Date.now() + 9 * 60 * 1000 //9 minute
 
-    const existingUsersOtp = await Otp.deleteMany({email : email,type : "passwordReset"}) 
+    const existingUsersOtp = await Otp.deleteMany({email : email}) 
     const newUserOtpForReset = await Otp.create(
         {
             email : email,
-            type : "passwordReset",
             otp : generatedOtp,
             expiresIn : expiresIn
         }
@@ -192,7 +191,7 @@ const sendPasswordresetOtp = AsyncHandler(async(req, res) => {
     
     const sendOtpViaMail = await SendOtpThroughMail(generatedOtp, email)
     if(!sendOtpViaMail){
-        const existingOtp = await Otp.deleteMany({email : email, type : "passwordReset"})
+        const existingOtp = await Otp.deleteMany({email : email})
         throw new ApiError(402, "all existing otp related password reset removed successfully")
     }
     
@@ -200,7 +199,6 @@ const sendPasswordresetOtp = AsyncHandler(async(req, res) => {
            .status(200)
            .json(new ApiResponse(200, {
             email : newUserOtpForReset.email,
-            type : newUserOtpForReset.type
            } , "otp sent successfully"))
 })
 
@@ -209,16 +207,13 @@ const verifyPasswordResetOtp = AsyncHandler(async(req, res) => {
        if(!email || !otp){
         throw new ApiError(401,"please provide otp for verification")
        }
-       console.log(email, otp)
 
         try {
-                const existingOtpRecord = await Otp.findOne({email : email, type : "passwordReset"})
-                console.log(existingOtpRecord.expiresIn)
+                const existingOtpRecord = await Otp.findOne({email : email})
                 if(Date.now() > existingOtpRecord.expiresIn) {
                     await Otp.deleteOne({ email, type: "passwordReset" });
                     throw new ApiError(400, "OTP has expired. Please request a new one.");
                 }
-                console.log(parseInt(otp), existingOtpRecord.otp)
                 if(parseInt(otp) !== parseInt(existingOtpRecord.otp)){
                     throw new ApiError(401, "otp is invalid try again")
                 }
@@ -227,7 +222,6 @@ const verifyPasswordResetOtp = AsyncHandler(async(req, res) => {
                         {
                             _id: existingOtpRecord._id,
                             email: existingOtpRecord.email,
-                            purpose : "passwordReset"
                         },
                         process.env.ACCESS_TOKEN_SECRET,
                         {
@@ -278,7 +272,7 @@ const resetPassword = AsyncHandler(async(req, res) => {
               await user.save()
     
               const deleteExistingOtp = await Otp.deleteMany(
-                {email : decoded.email, purpose : "passwordReset"}
+                {email : decoded.email}
               )
             return res.status(200).json(
                 new ApiResponse(200, 

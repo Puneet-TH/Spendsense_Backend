@@ -6,7 +6,7 @@ import { generateNumericOTP } from "../utils/OtpGeneration.js";
 import { AsyncHandler } from "../utils/AsyncHandler.js";
 import { SendOtpThroughMail } from "../utils/SendOtpThroughMail.js";
 
-
+//check these two.
 const sendOtp = AsyncHandler(async(req, res) => {
     const { email } = req.body;
     
@@ -40,13 +40,11 @@ const sendOtp = AsyncHandler(async(req, res) => {
             email,
             otp: generatedOtp,
             expiresIn: expiryTime,
-            type: "email_verification"
         });
-        
         // Send OTP via email
         const emailSent = await SendOtpThroughMail(generatedOtp, email);
         if(!emailSent) {
-            await Otp.findByIdAndDelete(otpRecord._id);
+            await Otp.findByIdAndDelete(otpRecord?._id);
             throw new ApiError(500, "Failed to send verification email. Please try again.");
         }
         
@@ -62,37 +60,34 @@ const sendOtp = AsyncHandler(async(req, res) => {
         );
         
     } catch (error) {
-        console.error("OTP Generation Error:", error);
         throw new ApiError(500, "Failed to generate and send OTP. Please try again.");
     }
 })
 
 const verifyOtp = AsyncHandler(async(req, res) => {
     const { otp, email, fullName } = req.body;
-    
     if(!otp || !email) {
         throw new ApiError(400, "OTP and email are required");
     }
     
     try {
-        // Find OTP record
+        // Find OTP record  //error
         const otpRecord = await Otp.findOne({ email });
-        
         if(!otpRecord) {
             throw new ApiError(400, "No OTP found. Please request a new OTP.");
         }
         if(Date.now() > otpRecord.expiresIn) {
-            await Otp.deleteOne({ email });
+            await Otp.deleteOne({ email: email});
             throw new ApiError(400, "OTP has expired. Please request a new OTP.");
         }
         
         // Verify OTP record with the given otp
-        if(parseInt(otp) !== otpRecord.otp) {
+        if(parseInt(otp) !== parseInt(otpRecord.otp)) {
             throw new ApiError(400, "Invalid OTP. Please check and try again.");
         }
         
         // OTP is valid - find the existing user
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email: email});
         
         if(!user) {
             throw new ApiError(404, "User not found. Please register first.");
@@ -103,9 +98,8 @@ const verifyOtp = AsyncHandler(async(req, res) => {
         await user.save();
         
         // Delete the used OTP
-        await Otp.deleteOne({ email });
+        await Otp.deleteOne({ email : email});
         
-        // Generate JWT token for verified user
         const token = user.generateAccessToken();
         
         const userData = {
@@ -129,7 +123,7 @@ const verifyOtp = AsyncHandler(async(req, res) => {
         );
         
     } catch (error) {
-        throw new ApiError(500, "Failed to verify OTP. Please try again.");
+        throw new ApiError(500,error,"failed to verify otp");
     }
 })
 export { sendOtp, verifyOtp };

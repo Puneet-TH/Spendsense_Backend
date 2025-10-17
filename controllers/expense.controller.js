@@ -49,25 +49,35 @@ const addExpense = AsyncHandler(async(req, res) => {
     } 
 })
 
-const removeExpense = AsyncHandler(async(req, res) => {
-      const {expenseId} = req.params 
-      if(!expenseId){
-        throw new ApiError(401, "no expenseId found in params")
-      }
-    try {
-          const expenseFound  = await Expense.findById(expenseId)
-          if(!expenseFound){
-             throw new ApiError("no expense founded in the db")
-          }
-         const deletedExpense = await Expense.findOneAndDelete({expenseId : expenseId})
-         if(!deletedExpense){
-            throw new ApiError("failed to delete expense try again later")
-         }
-         return res.status(200).json(new ApiError(200,deletedExpense,"expense deleted successfully"))
-    } catch (error) {
-        throw new ApiError(401, error? error : "delete failed retry again after some time")
+const removeExpense = AsyncHandler(async (req, res) => {
+    // Accept expenseId from params, query or body for flexibility
+    const expenseId = req.params?.expenseId || req.query?.expenseId || req.body?.expenseId;
+
+    if (!expenseId) {
+        throw new ApiError(400, "No expenseId provided. Provide expenseId as route param, query or body.");
     }
-})
+
+    if (!isValidObjectId(expenseId)) {
+        throw new ApiError(400, "Invalid expenseId format");
+    }
+
+    try {
+        const expenseFound = await Expense.findById(expenseId);
+        if (!expenseFound) {
+            return res.status(404).json(new ApiResponse(404, null, "Expense not found"));
+        }
+
+        const deletedExpense = await Expense.findByIdAndDelete(expenseId);
+        if (!deletedExpense) {
+            throw new ApiError(500, "Failed to delete expense. Try again later.");
+        }
+
+        return res.status(200).json(new ApiResponse(200, deletedExpense, "Expense deleted successfully"));
+    } catch (error) {
+        console.error("removeExpense error:", error);
+        throw new ApiError(500, error?.message || "Delete failed. Retry again after some time");
+    }
+});
 
 
 //updateExpense , //sumofallexpense , mostFrequentExpense, categorywiseSpending 
@@ -80,7 +90,7 @@ const updateExpense = AsyncHandler(async(req, res) => {
         throw new ApiError(400, "Tags must be an array of strings");
     }
 
-       const {expenseId} = req.params
+        const expenseId = req.params?.expenseId || req.query?.expenseId || req.body?.expenseId;
         if(!expenseId){
             throw new ApiError(401, "no expense Id in params")
         }
@@ -98,10 +108,10 @@ const updateExpense = AsyncHandler(async(req, res) => {
             categoryNew = new Category({ name: category, isDefault: false, keywords: tags });
             await categoryNew.save();
         }
-        const updatedExpense = await Expense.findByIdAndUpdate({expenseId}, 
+        const updatedExpense = await Expense.findByIdAndUpdate(expenseId, 
             {
                 $set:{
-                paidBy,
+                paidBy : req.user?._id || null,
                 amount : amount,
                 description : description,
                 category : categoryNew?._id || null,
@@ -118,7 +128,7 @@ const updateExpense = AsyncHandler(async(req, res) => {
 
         return res
                .status(200)
-               .json(new ApiError(200, updatedExpense, "Expense updated successfully"))
+               .json(new ApiResponse(200, updatedExpense, "Expense updated successfully"))
 
      } catch (error) {
         throw new ApiError(501, `update is not available currently and this is the problem : ${error}`)
@@ -128,7 +138,7 @@ const updateExpense = AsyncHandler(async(req, res) => {
 
 //trying pagination
 const getallExpense = AsyncHandler(async(req, res) => {
-    const { page = 1, limit = 10, query, sortBy = "createdAt", sortType = "desc", userId } = req.query
+    const { page = 1, limit = 10, sortBy = "createdAt", sortType = "desc", userId } = req.query
 
     if(!userId){     //if present or not
         throw new ApiError(401, "userId is not present")
@@ -215,39 +225,29 @@ const getMonthlyCategorySpending = AsyncHandler(async(req, res) => {
     }
 });
 
-const getTotalExpenseOfUser = AsyncHandler(async(req, res) => {
-     const {userId} = req.user?._id || req.params;
-     if(!userId) {
-        throw new ApiError(401, "no Id is present login first or provide through params")
-     }
-     
-    try {
-        const totalAmountSpended = await Expense.aggregate([
-            {
-            $group : {
-                _id : "$paidBy",
-                totalSpend : {
-                    $sum : "$amount"
-                } ,
-            }
-            }
-        ])
-        
-        if(!totalAmountSpended){
-            throw new ApiError(401, "unable to fetch total amount spend by the user")
-        }
-    
-        return res.status(200).json(
-            new ApiResponse(
-                200,
-                totalAmountSpended,
-                "total amount spend by the current user fetched successfully"
-            )
-        )
-    } catch (error) {
-        throw new ApiError(`unable to fetch current user total spend :: ${error}`)
-    }
-})
+//checked./
+const getTotalExpenseOfUser = AsyncHandler(async (req, res) => {
+  // Prefer authenticated id.
+  const userId = req.user?._id;
+  if (!userId) {
+    throw new ApiError(401, "No user id. Login or provide userId in params/query.");
+  }
+  if (!isValidObjectId(userId)) {
+    throw new ApiError(400, "Invalid userId format");
+  }
+
+  try {
+    const result = await Expense.aggregate([
+      { $match: { paidBy: new mongoose.Types.ObjectId(userId) } }, // filter by user
+      { $group: { _id: "$paidBy", totalSpend: { $sum: "$amount" } } }
+    ]);
+    const totalSpend = (result[0] && result[0].totalSpend) ? result[0].totalSpend : 0;
+
+    return res.status(200).json(new ApiResponse(200, { totalSpend}, "Total spend fetched successfully"));
+  } catch (err) {
+    throw new ApiError(500, "Unable to fetch total spend. Try again later.");
+  }
+});
 
 
 // Expense Insights and Analytics , most occuring expense //recurring expense update
@@ -256,6 +256,9 @@ const getTotalExpenseOfUser = AsyncHandler(async(req, res) => {
 export{
     addExpense,
     removeExpense,
-    updateExpense
+    updateExpense,
+    getallExpense,
+    getMonthlyCategorySpending,
+    getTotalExpenseOfUser
 }
 

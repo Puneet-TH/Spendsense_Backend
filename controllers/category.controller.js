@@ -1,7 +1,7 @@
 import { Category } from "../models/category.model.js";
 import { ApiError } from "../utils/ApiError.js";
 
-// Function to seed default categories
+// Function to insert default categories in category DB
 export const seedCategories = async () => {
     try {
         const existingCategories = await Category.find({ isDefault: true });
