@@ -203,27 +203,90 @@ const getallExpense = AsyncHandler(async(req, res) => {
     }
 })
 
+
+//monthly and yearly
 const getMonthlyCategorySpending = AsyncHandler(async(req, res) => {
         const userId = req.user._id; 
+         if(!userId) {
+            throw new ApiError(401, "user not logged in try again later")
+          }
         const { month, year } = req.query;
 
         if (!month || !year) {
-        return res.status(400).json(new ApiError({
+        return res.status(400).json(new ApiResponse(400, {
             success: false,
             message: "Month and year are required",
               }) );
         }
   try {
         const spending = await Expense.getMonthlyCategorySpending(userId, parseInt(month), parseInt(year));
+        if(!spending){
+            throw new ApiError(500, "error in fetching spending from db try again later")
+        }
         res.status(200).json(new ApiResponse(200, spending, "Category spending fetched successfully"));
     } catch (error) {
-        res.status(500).json(new ApiResponse(500, {
+        return res.status(500).json(new ApiResponse(500, {
         success: false,
         message: "Failed to fetch monthly category spending",
         error: error.message,
         },"unable to fetch spending try again later"));
     }
 });
+
+
+//can add pagination for every category when processing a large amount of data will help later.
+const getYearlyCategorySpending = AsyncHandler(async(req, res) => {
+    const userId = req.user?._id;
+    if (!userId) {
+        throw new ApiError(401, "Please login to access this resource");
+    }
+
+    const { year } = req.query;
+    if (!year || isNaN(year)) {
+        throw new ApiError(400, "Please provide a valid year");
+    }
+
+    const parsedYear = parseInt(year);
+    const currentYear = new Date().getFullYear();
+    
+    if (parsedYear > currentYear) {
+        throw new ApiError(400, "Cannot fetch data for future years");
+    }
+
+    try {
+        const yearlySpending = await Expense.getYearlyCategorySpending(userId, parsedYear);
+        
+        if (!yearlySpending || yearlySpending.length === 0) {
+            return res.status(200).json(
+                new ApiResponse(
+                    200,
+                    {
+                        year: parsedYear,
+                        categories: [],
+                        totalAmount: 0
+                    },
+                    "No expenses found for the specified year"
+                )
+            );
+        }
+
+        return res.status(200).json(
+            new ApiResponse(
+                200,
+                {
+                    yearlySpending
+                },
+                "Yearly category spending fetched successfully"
+            )
+        );
+    } catch (error) {
+        throw new ApiError(
+            500,
+            error?.message || "Failed to fetch yearly spending data"
+        );
+    }
+})
+
 
 //checked./
 const getTotalExpenseOfUser = AsyncHandler(async (req, res) => {
@@ -241,6 +304,11 @@ const getTotalExpenseOfUser = AsyncHandler(async (req, res) => {
       { $match: { paidBy: new mongoose.Types.ObjectId(userId) } }, // filter by user
       { $group: { _id: "$paidBy", totalSpend: { $sum: "$amount" } } }
     ]);
+    
+    if(!result){
+        throw new ApiError(500, "problem in getting total expense server busy")
+    }
+
     const totalSpend = (result[0] && result[0].totalSpend) ? result[0].totalSpend : 0;
 
     return res.status(200).json(new ApiResponse(200, { totalSpend}, "Total spend fetched successfully"));
@@ -248,6 +316,7 @@ const getTotalExpenseOfUser = AsyncHandler(async (req, res) => {
     throw new ApiError(500, "Unable to fetch total spend. Try again later.");
   }
 });
+
 
 
 // Expense Insights and Analytics , most occuring expense //recurring expense update
@@ -259,6 +328,7 @@ export{
     updateExpense,
     getallExpense,
     getMonthlyCategorySpending,
+    getYearlyCategorySpending,
     getTotalExpenseOfUser
 }
 

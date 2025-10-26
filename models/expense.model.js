@@ -114,6 +114,51 @@ expenseSchema.statics.getMonthlyCategorySpending = async function(userId, month,
     ]);
 };
 
+expenseSchema.statics.getYearlyCategorySpending = async function(userId, year) {
+    return await this.aggregate([
+        {
+            $match: {
+                paidBy: new mongoose.Types.ObjectId(userId),
+                $expr: {
+                    $and: [
+                        { $eq: [{ $year: "$expenseDate" }, year] }
+                    ]
+                }
+            }
+        },
+        {
+            $group: {
+                _id: "$category",
+                yearlyTotalAmount: { $sum: "$amount" },
+                count: { $sum: 1 }
+            }
+        },
+        {
+            $lookup: {
+                from: "categories",
+                localField: "_id",
+                foreignField: "_id",
+                as: "categoryInfo"
+            }
+        },
+        {
+            $unwind: "$categoryInfo"
+        },
+        {
+            $project: {
+                categoryName: "$categoryInfo.name",
+                categoryIcon: "$categoryInfo.icon",
+                categoryColor: "$categoryInfo.color",
+                yearlyTotalAmount : 1,
+                count: 1
+            }
+        },
+        {
+            $sort: { yearlyTotalAmount: -1 }
+        }
+    ]);
+};
+
 expenseSchema.plugin(mongooseAggregatePaginate)
 
 export const Expense = mongoose.model("Expense", expenseSchema);

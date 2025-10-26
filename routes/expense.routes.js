@@ -5,6 +5,7 @@ import {
     updateExpense,
     getallExpense,
     getMonthlyCategorySpending,
+    getYearlyCategorySpending,
     getTotalExpenseOfUser
     } from "../controllers/expense.controller.js";
 import { verifyJWT } from "../middlewares/Auth.js";
@@ -16,5 +17,6 @@ router.route("/update-expense").patch(verifyJWT, updateExpense)
 //all get routes
 router.route("/e/allExpense").get(verifyJWT, getallExpense)
 router.route("/m/monthlyCategorySpending").get(verifyJWT, getMonthlyCategorySpending)
+router.route("/y/yearlyCategorySpending").get(verifyJWT, getYearlyCategorySpending)
 router.route("/t/totalExpense").get(verifyJWT, getTotalExpenseOfUser)
 export default router 
