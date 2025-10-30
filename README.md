@@ -1,5 +1,12 @@
 # SpendSense - Expense Tracking API
 
+## 🌐 Base URL
+
+```
+Production: https://spendsense-backend-d3ti.onrender.com/api/v1
+Local: http://localhost:5000/api/v1
+```
+
 ## 🚀 Quick Start
 
 ```bash
